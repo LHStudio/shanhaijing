@@ -222,6 +222,14 @@
                 <h2 class="font-ma-shan text-4xl section-title">AI唤兽台</h2>
                 <p class="max-w-3xl mx-auto mb-8 text-gray-600">在此输入《山海经》原文描述，亲手召唤属于你的上古神兽。体验从文字到图像的创世过程。</p>
                 <div class="max-w-2xl mx-auto bg-white/50 p-6 rounded-lg shadow-inner border border-[#D3B89E]">
+                    <div class="mb-4">
+                        <label for="api-key-input" class="block text-left text-sm font-medium text-gray-700 mb-1">阿里通义万相 API Key：</label>
+                        <input type="password" id="api-key-input" class="w-full p-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-[#C0392B]" placeholder="在此处粘贴您的 API Key">
+                    </div>
+                     <div class="text-xs text-gray-500 text-left mb-4">
+                        <span>密钥将自动保存在您的浏览器中，方便下次使用。访问 aliyun.com 获取。</span>
+                        <button id="clear-keys-btn" class="ml-2 font-semibold text-blue-600 hover:text-red-600 underline">清除已存密钥</button>
+                    </div>
                     <textarea id="prompt-input" class="w-full h-32 p-4 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#C0392B] focus:border-transparent transition" placeholder="例如：其状如马而白身黑尾，一角，虎牙爪，有音如鼓，其名曰鹿蜀。"></textarea>
                     <button id="generate-btn" class="mt-4 bg-[#C0392B] hover:bg-red-800 text-white font-bold py-3 px-8 rounded-full transition-all duration-300 text-lg shadow-md hover:shadow-lg">
                         天地玄黄，应召而来
@@ -279,21 +287,21 @@
             const beasts = [
                 {
                     name: '九尾狐',
-                    image: 'https://placehold.co/600x400/C0392B/FFFFFF?text=AI生成：九尾狐',
+                    image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/The_nine-tailed_fox_from_the_Ehon_Hyaku-monogatari.jpg/800px-The_nine-tailed_fox_from_the_Ehon_Hyaku-monogatari.jpg',
                     original: '【南山经】曰：青丘之山，有兽焉，其状如狐而九尾，其音如婴儿，能食人，食者不蛊。',
                     description: '九尾狐是中国古代神话传说中的奇兽。它居住在青丘山，外形像狐狸但有九条尾巴，叫声像婴儿啼哭。传说它会吃人，但吃了它的肉也能让人不受邪气的侵扰。',
                     audio: '' // No audio placeholder needed for demo
                 },
                 {
                     name: '鹿蜀',
-                    image: 'https://placehold.co/600x400/2980B9/FFFFFF?text=AI生成：鹿蜀',
+                    image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Przewalski-Pferd_im_Tierpark_Hellabrunn-2.jpg/1280px-Przewalski-Pferd_im_Tierpark_Hellabrunn-2.jpg',
                     original: '【南山经】曰：杻阳之山，有兽焉，其状如马而白首，其文如虎而赤尾，其音如谣，其名曰鹿蜀，佩之宜子孙。',
                     description: '鹿蜀是生活在杻阳山的一种瑞兽。它的样子像马，头部是白色的，身上有老虎一样的斑纹，尾巴是红色的。它的叫声如同人在歌唱。人们相信佩戴它的皮毛可以子孙满堂。',
                     audio: ''
                 },
                 {
                     name: '精卫',
-                    image: 'https://placehold.co/600x400/27AE60/FFFFFF?text=AI生成：精卫',
+                    image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Tern_in_flight.jpg/1280px-Tern_in_flight.jpg',
                     original: '【北山经】曰：发鸠之山，其上多柘木。有鸟焉，其状如乌，文首、白喙、赤足，名曰精卫，其鸣自詨。是炎帝之少女，名曰女娃。',
                     description: '精卫是一种神鸟，由炎帝的小女儿女娃的灵魂所化。它的外形像乌鸦，但头部有花纹，白色的嘴，红色的脚。它不断地衔来西山的木石，想要填平东海，象征着不屈不挠、坚韧不拔的精神。',
                     audio: ''
@@ -373,65 +381,113 @@
             const placeholderText = document.getElementById('placeholder-text');
             const loaderContainer = document.getElementById('loader-container');
             const resultImage = document.getElementById('result-image');
+            const apiKeyInput = document.getElementById('api-key-input');
+            const clearKeysBtn = document.getElementById('clear-keys-btn');
+
+            // --- 密钥本地存储逻辑 ---
+            function loadKeysFromStorage() {
+                const savedApiKey = localStorage.getItem('tongyiApiKey');
+                if (savedApiKey) {
+                    apiKeyInput.value = savedApiKey;
+                }
+            }
+
+            function saveKeysToStorage(apiKey) {
+                localStorage.setItem('tongyiApiKey', apiKey);
+            }
+
+            function clearKeysFromStorage() {
+                localStorage.removeItem('tongyiApiKey');
+                apiKeyInput.value = '';
+                alert('已清除浏览器中保存的密钥！');
+            }
+
+            // 页面加载时自动填充已保存的密钥
+            loadKeysFromStorage();
             
-            const API_KEY = ""; // Important: Leave this empty. The environment will provide it.
-            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${API_KEY}`;
-            
+            // 为清除按钮添加事件
+            clearKeysBtn.addEventListener('click', clearKeysFromStorage);
+
+
+            // --- AI唤兽台逻辑 (阿里通义万相 API) ---
             async function generateImage() {
-                let userPrompt = promptInput.value.trim();
-                
+                const apiKey = apiKeyInput.value.trim();
+
+                if (!apiKey) {
+                    alert("请先输入您的阿里通义万相 API Key！");
+                    return;
+                }
+
+                const userPrompt = promptInput.value.trim();
                 if (!userPrompt) {
                     alert("请输入神兽的描述！");
                     return;
                 }
 
-                // 显示加载动画
+                // UI状态更新：显示加载动画
                 placeholderText.classList.add('hidden');
                 resultImage.classList.add('hidden');
                 loaderContainer.classList.remove('hidden');
                 generateBtn.disabled = true;
                 generateBtn.textContent = '召唤中...';
                 
-                // 构建更丰富的 Prompt
-                const fullPrompt = `A mythical beast from the Chinese "Classic of Mountains and Seas" (Shan Hai Jing), described as: "${userPrompt}". Style: Chinese ink wash painting (Shui-mo), gongbi meticulous style, on ancient scroll texture, digital art, epic, detailed, fantasy creature.`;
-
-                const payload = {
-                    contents: [{
-                        parts: [{ text: fullPrompt }]
-                    }],
-                    generationConfig: {
-                        responseModalities: ['IMAGE']
-                    },
-                };
+                // 同样，为了方便静态页面部署，这里使用CORS代理
+                const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+                const apiUrl = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis';
                 
                 try {
-                    const response = await fetch(API_URL, {
+                    const fullPrompt = `《山海经》中的神兽, 描述如下：“${userPrompt}”。风格：中国水墨画, 工笔画, 古卷轴质感, 数字艺术, 史诗感, 细节丰富, 神话生物。`;
+
+                    const payload = {
+                        model: "wanx-v1",
+                        input: {
+                            prompt: fullPrompt
+                        },
+                        parameters: {
+                            size: "1024*1024",
+                            n: 1
+                        }
+                    };
+
+                    const response = await fetch(proxyUrl + apiUrl, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`,
+                             // 使用同步调用模式，直接返回结果
+                            'X-DashScope-Async': 'disable'
+                        },
                         body: JSON.stringify(payload)
                     });
-                    
+
                     if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                         const errorData = await response.json();
+                        throw new Error(`通义万相API错误: ${errorData.message || `HTTP ${response.status}`}`);
                     }
 
                     const result = await response.json();
                     
-                    const base64Data = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+                    if (result.code && result.code !== 'Success') {
+                         throw new Error(`API返回错误: ${result.message}`);
+                    }
 
-                    if (base64Data) {
-                        resultImage.src = `data:image/png;base64,${base64Data}`;
+                    const imageUrl = result.output?.results?.[0]?.url;
+
+                    if (imageUrl) {
+                        resultImage.src = imageUrl;
                         resultImage.classList.remove('hidden');
+                        // 成功生成图片后，保存密钥
+                        saveKeysToStorage(apiKey);
                     } else {
-                        throw new Error('未能从API响应中获取图像数据。');
+                        throw new Error('未能从API响应中获取图像URL。');
                     }
 
                 } catch (error) {
-                    console.error("Error generating image:", error);
+                    console.error("生成图像时出错:", error);
                     placeholderText.textContent = `生成失败，请稍后再试。错误: ${error.message}`;
                     placeholderText.classList.remove('hidden');
                 } finally {
-                    // 隐藏加载动画
+                    // UI状态恢复
                     loaderContainer.classList.add('hidden');
                     generateBtn.disabled = false;
                     generateBtn.textContent = '天地玄黄，应召而来';
@@ -444,3 +500,4 @@
     </script>
 </body>
 </html>
+
