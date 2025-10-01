@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>神兽之境：一部活化的《山海经》AI绘卷</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* 自定义样式 */
+        body {
+            font-family: 'Noto Serif SC', serif;
+            background-color: #F1EADF; /* 羊皮纸/古卷轴背景色 */
+            background-image: url('https://www.transparenttextures.com/patterns/old-wall.png');
+        }
+        .font-ma-shan {
+            font-family: 'Ma Shan Zheng', cursive;
+        }
+        .scroll-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(241, 234, 223, 0.8);
+            border-left: 2px solid #8B4513; /* 卷轴边框 */
+            border-right: 2px solid #8B4513;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            padding: 2rem 4rem;
+        }
+        .nav-link {
+            transition: all 0.3s ease;
+            color: #6a5a4b;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: #C0392B; /* 朱砂红 */
+            transform: translateY(-2px);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+        .section-title {
+            color: #C0392B;
+            border-bottom: 2px solid #D3B89E;
+            padding-bottom: 0.5rem;
+            margin-bottom: 2rem;
+            display: inline-block;
+        }
+        .beast-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 1px solid #D3B89E;
+        }
+        .beast-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        /* 唤兽台加载动画 */
+        @keyframes ink-swirl {
+            0% { transform: scale(1) rotate(0deg); opacity: 0.7; }
+            50% { transform: scale(1.2) rotate(180deg); opacity: 1; }
+            100% { transform: scale(1) rotate(360deg); opacity: 0.7; }
+        }
+        .loader {
+            width: 80px;
+            height: 80px;
+            border: 5px solid transparent;
+            border-top-color: #C0392B;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* 弹窗样式 */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 100; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.6); /* Black w/ opacity */
+            backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background-color: #F1EADF;
+            margin: 10% auto;
+            padding: 2rem;
+            border: 1px solid #8B4513;
+            width: 80%;
+            max-width: 800px;
+            border-radius: 10px;
+            position: relative;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .close-btn {
+            color: #6a5a4b;
+            position: absolute;
+            top: 15px;
+            right: 25px;
+            font-size: 35px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+        .close-btn:hover {
+            color: #C0392B;
+        }
+
+        /* 地图热点区域 */
+        .hotspot {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: rgba(192, 57, 43, 0.5);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            text-align: center;
+            border: 2px solid rgba(255,255,255,0.7);
+        }
+        .hotspot:hover {
+            background-color: rgba(192, 57, 43, 0.8);
+            transform: scale(1.1);
+        }
+        .tooltip {
+            visibility: hidden;
+            width: 160px;
+            background-color: #3A3A3A;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -80px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #3A3A3A transparent transparent transparent;
+        }
+        .hotspot:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-[#3A3A3A]">
+
+    <div class="scroll-container my-8">
+
+        <!-- Header and Navigation -->
+        <header class="text-center py-8 border-b-2 border-dashed border-[#D3B89E]">
+            <h1 class="font-ma-shan text-6xl text-[#3A3A3A]">神兽之境</h1>
+            <p class="text-xl mt-2 text-gray-600">一部活化的《山海经》AI绘卷</p>
+            <nav class="mt-8 text-xl space-x-8 font-ma-shan">
+                <a href="#map" class="nav-link active">山海舆图</a>
+                <a href="#archive" class="nav-link">神兽图鉴</a>
+                <a href="#altar" class="nav-link">AI唤兽台</a>
+            </nav>
+        </header>
+
+        <main class="mt-12">
+
+            <!-- Section 1: 山海舆图 -->
+            <section id="map" class="py-12 text-center scroll-mt-20">
+                <h2 class="font-ma-shan text-4xl section-title">山海舆图</h2>
+                <p class="max-w-3xl mx-auto mb-8 text-gray-600">点击舆图上的山脉，探寻栖息于此的奇珍异兽。</p>
+                <div class="relative max-w-4xl mx-auto border-2 border-[#8B4513] p-2 rounded-lg bg-[#D3B89E]">
+                    <img src="https://placehold.co/1000x750/6a5a4b/F1EADF?text=山海舆图示例" alt="山海舆图" class="w-full h-auto rounded">
+                    <!-- 热点区域 -->
+                    <div class="hotspot" style="top: 20%; left: 30%;">
+                        <span>青丘山</span>
+                        <div class="tooltip">
+                            <p class="font-bold">此地有兽：</p>
+                            <p>九尾狐</p>
+                        </div>
+                    </div>
+                    <div class="hotspot" style="top: 50%; left: 60%;">
+                        <span>杻阳山</span>
+                         <div class="tooltip">
+                            <p class="font-bold">此地有兽：</p>
+                            <p>鹿蜀</p>
+                        </div>
+                    </div>
+                    <div class="hotspot" style="top: 75%; left: 40%;">
+                        <span>发鸠山</span>
+                         <div class="tooltip">
+                            <p class="font-bold">此地有鸟：</p>
+                            <p>精卫</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 2: 神兽图鉴 -->
+            <section id="archive" class="py-12 scroll-mt-20">
+                <h2 class="font-ma-shan text-4xl section-title text-center block mx-auto">神兽图鉴</h2>
+                <div id="beast-gallery" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
+                    <!-- 神兽卡片将由JS动态生成 -->
+                </div>
+            </section>
+
+            <!-- Section 3: AI唤兽台 -->
+            <section id="altar" class="py-12 text-center scroll-mt-20">
+                <h2 class="font-ma-shan text-4xl section-title">AI唤兽台</h2>
+                <p class="max-w-3xl mx-auto mb-8 text-gray-600">在此输入《山海经》原文描述，亲手召唤属于你的上古神兽。体验从文字到图像的创世过程。</p>
+                <div class="max-w-2xl mx-auto bg-white/50 p-6 rounded-lg shadow-inner border border-[#D3B89E]">
+                    <textarea id="prompt-input" class="w-full h-32 p-4 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#C0392B] focus:border-transparent transition" placeholder="例如：其状如马而白身黑尾，一角，虎牙爪，有音如鼓，其名曰鹿蜀。"></textarea>
+                    <button id="generate-btn" class="mt-4 bg-[#C0392B] hover:bg-red-800 text-white font-bold py-3 px-8 rounded-full transition-all duration-300 text-lg shadow-md hover:shadow-lg">
+                        天地玄黄，应召而来
+                    </button>
+                </div>
+                <div id="result-container" class="mt-8 min-h-[300px] flex items-center justify-center bg-gray-200/50 rounded-lg p-4 border border-dashed border-[#D3B89E]">
+                    <p id="placeholder-text" class="text-gray-500">生成的神兽图像将在此处显示</p>
+                    <div id="loader-container" class="hidden flex-col items-center justify-center">
+                        <div class="loader"></div>
+                        <p class="mt-4 text-lg text-gray-600">正在与上古沟通，请稍候...</p>
+                    </div>
+                    <img id="result-image" src="" alt="生成的图像" class="hidden max-w-full max-h-[500px] rounded-lg shadow-lg">
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- 弹窗 Modal -->
+    <div id="beast-modal" class="modal">
+        <div class="modal-content animate-fade-in-up">
+            <span class="close-btn">&times;</span>
+            <div id="modal-body" class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                <div>
+                   <img id="modal-img" src="" alt="神兽高清图" class="w-full rounded-lg shadow-lg border-2 border-[#D3B89E]">
+                </div>
+                <div>
+                    <h3 id="modal-title" class="font-ma-shan text-4xl text-[#C0392B] mb-4"></h3>
+                    <div class="space-y-4">
+                        <div>
+                            <h4 class="font-bold text-lg border-b border-[#D3B89E] pb-1 mb-2">【原文】</h4>
+                            <p id="modal-original" class="text-gray-700 italic"></p>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-lg border-b border-[#D3B89E] pb-1 mb-2">【白话解析】</h4>
+                            <p id="modal-desc" class="text-gray-600"></p>
+                        </div>
+                         <div>
+                            <h4 class="font-bold text-lg border-b border-[#D3B89E] pb-1 mb-2">【AI诵读】</h4>
+                            <audio id="modal-audio" controls class="w-full">
+                                <source src="" type="audio/mpeg">
+                                Your browser does not support the audio element.
+                            </audio>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- 数据 ---
+            const beasts = [
+                {
+                    name: '九尾狐',
+                    image: 'https://placehold.co/600x400/C0392B/FFFFFF?text=AI生成：九尾狐',
+                    original: '【南山经】曰：青丘之山，有兽焉，其状如狐而九尾，其音如婴儿，能食人，食者不蛊。',
+                    description: '九尾狐是中国古代神话传说中的奇兽。它居住在青丘山，外形像狐狸但有九条尾巴，叫声像婴儿啼哭。传说它会吃人，但吃了它的肉也能让人不受邪气的侵扰。',
+                    audio: '' // No audio placeholder needed for demo
+                },
+                {
+                    name: '鹿蜀',
+                    image: 'https://placehold.co/600x400/2980B9/FFFFFF?text=AI生成：鹿蜀',
+                    original: '【南山经】曰：杻阳之山，有兽焉，其状如马而白首，其文如虎而赤尾，其音如谣，其名曰鹿蜀，佩之宜子孙。',
+                    description: '鹿蜀是生活在杻阳山的一种瑞兽。它的样子像马，头部是白色的，身上有老虎一样的斑纹，尾巴是红色的。它的叫声如同人在歌唱。人们相信佩戴它的皮毛可以子孙满堂。',
+                    audio: ''
+                },
+                {
+                    name: '精卫',
+                    image: 'https://placehold.co/600x400/27AE60/FFFFFF?text=AI生成：精卫',
+                    original: '【北山经】曰：发鸠之山，其上多柘木。有鸟焉，其状如乌，文首、白喙、赤足，名曰精卫，其鸣自詨。是炎帝之少女，名曰女娃。',
+                    description: '精卫是一种神鸟，由炎帝的小女儿女娃的灵魂所化。它的外形像乌鸦，但头部有花纹，白色的嘴，红色的脚。它不断地衔来西山的木石，想要填平东海，象征着不屈不挠、坚韧不拔的精神。',
+                    audio: ''
+                },
+            ];
+
+            // --- 导航栏逻辑 ---
+            const navLinks = document.querySelectorAll('.nav-link');
+            const sections = document.querySelectorAll('main section');
+
+            window.addEventListener('scroll', () => {
+                let current = '';
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    if (pageYOffset >= sectionTop - 100) {
+                        current = section.getAttribute('id');
+                    }
+                });
+
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href').substring(1) === current) {
+                        link.classList.add('active');
+                    }
+                });
+            });
+
+            // --- 神兽图鉴渲染 ---
+            const gallery = document.getElementById('beast-gallery');
+            beasts.forEach((beast, index) => {
+                const card = document.createElement('div');
+                card.className = 'beast-card bg-white/60 p-4 rounded-lg shadow-md overflow-hidden';
+                card.innerHTML = `
+                    <img src="${beast.image}" alt="${beast.name}" class="w-full h-64 object-cover rounded-md">
+                    <div class="p-4 text-center">
+                        <h3 class="font-ma-shan text-2xl text-[#3A3A3A]">${beast.name}</h3>
+                        <p class="text-gray-600 mt-2 truncate">${beast.description}</p>
+                    </div>
+                `;
+                card.addEventListener('click', () => openModal(beast));
+                gallery.appendChild(card);
+            });
+
+            // --- 弹窗逻辑 ---
+            const modal = document.getElementById('beast-modal');
+            const closeModalBtn = document.querySelector('.close-btn');
+
+            function openModal(beast) {
+                document.getElementById('modal-img').src = beast.image;
+                document.getElementById('modal-title').textContent = beast.name;
+                document.getElementById('modal-original').textContent = beast.original;
+                document.getElementById('modal-desc').textContent = beast.description;
+                const audioPlayer = document.getElementById('modal-audio');
+                if (beast.audio) {
+                    audioPlayer.src = beast.audio;
+                    audioPlayer.parentElement.style.display = 'block';
+                } else {
+                     audioPlayer.parentElement.style.display = 'none';
+                }
+                modal.style.display = 'block';
+            }
+
+            closeModalBtn.onclick = () => {
+                modal.style.display = 'none';
+            };
+
+            window.onclick = (event) => {
+                if (event.target == modal) {
+                    modal.style.display = 'none';
+                }
+            };
+            
+            // --- AI唤兽台逻辑 ---
+            const generateBtn = document.getElementById('generate-btn');
+            const promptInput = document.getElementById('prompt-input');
+            const resultContainer = document.getElementById('result-container');
+            const placeholderText = document.getElementById('placeholder-text');
+            const loaderContainer = document.getElementById('loader-container');
+            const resultImage = document.getElementById('result-image');
+            
+            const API_KEY = ""; // Important: Leave this empty. The environment will provide it.
+            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${API_KEY}`;
+            
+            async function generateImage() {
+                let userPrompt = promptInput.value.trim();
+                
+                if (!userPrompt) {
+                    alert("请输入神兽的描述！");
+                    return;
+                }
+
+                // 显示加载动画
+                placeholderText.classList.add('hidden');
+                resultImage.classList.add('hidden');
+                loaderContainer.classList.remove('hidden');
+                generateBtn.disabled = true;
+                generateBtn.textContent = '召唤中...';
+                
+                // 构建更丰富的 Prompt
+                const fullPrompt = `A mythical beast from the Chinese "Classic of Mountains and Seas" (Shan Hai Jing), described as: "${userPrompt}". Style: Chinese ink wash painting (Shui-mo), gongbi meticulous style, on ancient scroll texture, digital art, epic, detailed, fantasy creature.`;
+
+                const payload = {
+                    contents: [{
+                        parts: [{ text: fullPrompt }]
+                    }],
+                    generationConfig: {
+                        responseModalities: ['IMAGE']
+                    },
+                };
+                
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    
+                    const base64Data = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+
+                    if (base64Data) {
+                        resultImage.src = `data:image/png;base64,${base64Data}`;
+                        resultImage.classList.remove('hidden');
+                    } else {
+                        throw new Error('未能从API响应中获取图像数据。');
+                    }
+
+                } catch (error) {
+                    console.error("Error generating image:", error);
+                    placeholderText.textContent = `生成失败，请稍后再试。错误: ${error.message}`;
+                    placeholderText.classList.remove('hidden');
+                } finally {
+                    // 隐藏加载动画
+                    loaderContainer.classList.add('hidden');
+                    generateBtn.disabled = false;
+                    generateBtn.textContent = '天地玄黄，应召而来';
+                }
+            }
+
+            generateBtn.addEventListener('click', generateImage);
+        });
+
+    </script>
+</body>
+</html>
